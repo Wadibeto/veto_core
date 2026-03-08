@@ -2,7 +2,6 @@ import json, sqlite3, requests, math
 import os, argparse, glob
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LEGACY_DB_PATH = os.path.join(BASE_DIR, "store.sqlite")
 STORES_DIR = os.path.join(BASE_DIR, "stores")
 OLLAMA_URL = os.getenv("VETO_OLLAMA_URL", "http://localhost:11434")
 EMBED_MODEL = os.getenv("VETO_EMBED_MODEL", "nomic-embed-text")
@@ -22,7 +21,7 @@ def embed(text):
             timeout=120
         )
     except requests.exceptions.RequestException as ex:
-        raise RuntimeError(f"Impossible de joindre Ollama sur {OLLAMA_URL}. Démarre Ollama puis réessaie.") from ex
+        raise RuntimeError(f"Impossible de joindre Ollama sur {OLLAMA_URL}. Demarre Ollama puis reessaie.") from ex
     r.raise_for_status()
     js = r.json()
     if "embedding" in js:
@@ -40,9 +39,6 @@ def list_rag_stores():
             rag = os.path.splitext(os.path.basename(path))[0]
             stores[rag] = path
 
-    if not stores and os.path.exists(LEGACY_DB_PATH):
-        stores["default"] = LEGACY_DB_PATH
-
     return stores
 
 def search(query, k=6, rag=None):
@@ -53,7 +49,7 @@ def search(query, k=6, rag=None):
         stores = {rag: stores[rag]}
 
     if not stores:
-        raise RuntimeError("Aucun index trouvé. Lance d'abord index.py")
+        raise RuntimeError("Aucun index trouve. Lance d'abord index.py")
 
     qv = embed(query)
     scored = []
@@ -87,17 +83,24 @@ def ask_vetia(question, rag=None, k=6):
     context = "\n".join(context_lines)
 
     prompt = f"""
-[CONTEXTE - Extraits numérotés]
+[CONTEXTE - Extraits numerotes]
 {context}
 
 [QUESTION]
 {question}
 
 [INSTRUCTION]
-Réponds en t'appuyant strictement sur le CONTEXTE ci-dessus.
-- Cite entre crochets les numéros des extraits (ex: [1][3]) quand tu utilises une info.
-- Si une information n'est pas dans le contexte, dis-le.
-- Réponse courte, claire, structurée.
+Tu es VetIA. Reponds en t'appuyant strictement sur le CONTEXTE ci-dessus.
+- Cite entre crochets les numeros des extraits (ex: [1][3]) quand tu utilises une info.
+- Si une information n'est pas dans le contexte, dis-le explicitement.
+- Ne pose jamais de diagnostic definitif.
+- Si un signe de gravite est present, recommande une urgence veterinaire immediate.
+- Reponse en 5 sections maximum:
+    1) Niveau estime (faible/moderee/elevee)
+    2) Pourquoi
+    3) Action immediate
+    4) Questions prioritaires
+    5) Avertissement
 """
 
     r = requests.post(
@@ -113,12 +116,12 @@ Réponds en t'appuyant strictement sur le CONTEXTE ci-dessus.
         data = json.loads(line.decode())
         if "response" in data:
             full += data["response"]
-    return full
+    return full.strip()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Question-réponse sur un ou plusieurs RAG")
-    parser.add_argument("--rag", type=str, default=None, help="Nom du RAG ciblé (sinon recherche globale)")
-    parser.add_argument("--k", type=int, default=6, help="Nombre d'extraits récupérés")
+    parser = argparse.ArgumentParser(description="Question-reponse sur un ou plusieurs RAG")
+    parser.add_argument("--rag", type=str, default=None, help="Nom du RAG cible (sinon recherche globale)")
+    parser.add_argument("--k", type=int, default=6, help="Nombre d'extraits recuperes")
     parser.add_argument("--list-rags", action="store_true", help="Affiche les RAG disponibles")
     parser.add_argument("question", nargs="*", help="Question (optionnel: mode interactif si absent)")
     args = parser.parse_args()
@@ -126,7 +129,7 @@ if __name__ == "__main__":
     if args.list_rags:
         stores = list_rag_stores()
         if not stores:
-            print("Aucun RAG indexé pour le moment.")
+            print("Aucun RAG indexe pour le moment.")
         else:
             print("RAG disponibles:")
             for name in sorted(stores.keys()):
