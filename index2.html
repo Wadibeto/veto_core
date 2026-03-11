@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assistant IA — InfoVéto Clinique</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Cormorant+Garamond:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+
+  <style>
+    :root{
+      --black:#000000;
+      --white:#ffffff;
+      --accent:#EF0FCF;
+      --muted:#535C62;
+      --bg:#FAFAFB;
+      --bg-soft:#F4F5F7;
+      --line:rgba(0,0,0,.08);
+      --text-soft:rgba(83,92,98,.95);
+      --text-fade:rgba(83,92,98,.58);
+      --shadow:0 14px 34px rgba(0,0,0,.05);
+      --shadow-soft:0 8px 18px rgba(0,0,0,.035);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: 'Manrope', sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(239,15,207,.045), transparent 22%),
+        radial-gradient(circle at top right, rgba(83,92,98,.05), transparent 26%),
+        linear-gradient(180deg, #ffffff 0%, #fbfbfc 100%);
+      color: var(--black);
+    }
+
+    body { overflow: hidden; }
+
+    .font-display { font-family: 'Cormorant Garamond', serif; }
+
+    .app-shell {
+      height: 100dvh;
+      display: grid;
+      grid-template-columns: 256px 1fr;
+    }
+
+    .sidebar {
+      background:
+        radial-gradient(circle at top left, rgba(239,15,207,.10), transparent 26%),
+        linear-gradient(180deg, #050505 0%, #0c0c0d 100%);
+      color: white;
+      border-right: 1px solid rgba(255,255,255,.06);
+      padding: 18px 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+    }
+
+    .sidebar-top {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-nav {
+      min-height: 0;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .sidebar-nav::-webkit-scrollbar,
+    .panel-scroll::-webkit-scrollbar,
+    .chat-scroll::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    .sidebar-nav::-webkit-scrollbar-thumb,
+    .panel-scroll::-webkit-scrollbar-thumb,
+    .chat-scroll::-webkit-scrollbar-thumb {
+      background: rgba(0,0,0,.12);
+      border-radius: 999px;
+    }
+
+    .logo-title {
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .sidebar-subtitle {
+      color: rgba(255,255,255,.52);
+      font-size: .84rem;
+      line-height: 1.45;
+      margin-top: 8px;
+      max-width: 180px;
+    }
+
+    .nav-group { margin-top: 22px; }
+
+    .nav-group-title {
+      font-size: .70rem;
+      text-transform: uppercase;
+      letter-spacing: .16em;
+      color: rgba(255,255,255,.34);
+      margin: 0 0 10px 10px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: .82rem;
+      padding: .78rem .90rem;
+      border-radius: 15px;
+      color: rgba(255,255,255,.72);
+      text-decoration: none;
+      border: 1px solid transparent;
+      font-size: .92rem;
+      font-weight: 500;
+      transition: .2s ease;
+    }
+
+    .nav-item i {
+      width: 16px;
+      text-align: center;
+      font-size: .92rem;
+      opacity: .92;
+    }
+
+    .nav-item:hover {
+      background: rgba(255,255,255,.045);
+      border-color: rgba(255,255,255,.05);
+      color: #fff;
+    }
+
+    .nav-item.active {
+      background: rgba(239,15,207,.10);
+      border-color: rgba(239,15,207,.18);
+      color: #fff;
+    }
+
+    .nav-item.active i {
+      color: var(--accent);
+    }
+
+    .sidebar-footer-card {
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 20px;
+      padding: 14px;
+    }
+
+    .sidebar-footer-card .meta {
+      font-size: .72rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.40);
+      margin-bottom: 8px;
+    }
+
+    .sidebar-footer-card .title {
+      color: white;
+      font-weight: 700;
+      font-size: .95rem;
+      margin-bottom: 8px;
+    }
+
+    .sidebar-footer-card .desc {
+      color: rgba(255,255,255,.62);
+      font-size: .84rem;
+      line-height: 1.45;
+    }
+
+    .main {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: 68px 1fr;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    .topbar {
+      background: rgba(255,255,255,.82);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 12px 22px;
+    }
+
+    .section-title {
+      font-size: .68rem;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--text-fade);
+      line-height: 1;
+    }
+
+    .page-title {
+      font-size: 1.95rem;
+      line-height: .95;
+      letter-spacing: -0.03em;
+      margin-top: 2px;
+    }
+
+    .page-title span {
+      color: var(--accent);
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn-main {
+      background: #000;
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: .72rem .96rem;
+      font-weight: 700;
+      font-size: .84rem;
+      transition: .2s ease;
+      white-space: nowrap;
+    }
+
+    .btn-main:hover {
+      background: #111;
+      transform: translateY(-1px);
+    }
+
+    .btn-ghost {
+      background: #fff;
+      color: #000;
+      border: 1px solid rgba(0,0,0,.08);
+      border-radius: 999px;
+      padding: .70rem .88rem;
+      font-weight: 600;
+      font-size: .82rem;
+      transition: .2s ease;
+      white-space: nowrap;
+    }
+
+    .btn-ghost:hover {
+      border-color: rgba(239,15,207,.20);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .content {
+      min-height: 0;
+      overflow: hidden;
+      padding: 16px 22px 18px;
+      display: grid;
+      grid-template-columns: minmax(0,1.45fr) 350px;
+      gap: 12px;
+    }
+
+    .card {
+      background: rgba(255,255,255,.92);
+      border: 1px solid rgba(0,0,0,.06);
+      box-shadow: var(--shadow);
+      border-radius: 22px;
+    }
+
+    .card-soft {
+      background: var(--bg);
+      border: 1px solid rgba(0,0,0,.06);
+      box-shadow: var(--shadow-soft);
+      border-radius: 18px;
+    }
+
+    .dark-premium {
+      background: linear-gradient(135deg, #0b0b0b 0%, #171717 100%);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,.06);
+      box-shadow: 0 14px 30px rgba(0,0,0,.10);
+      border-radius: 22px;
+    }
+
+    .dark-premium .section-title,
+    .dark-premium .text-soft,
+    .dark-premium .text-fade {
+      color: rgba(255,255,255,.72);
+    }
+
+    .chat-shell {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    .header-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+    }
+
+    .badge-soft {
+      display: inline-flex;
+      align-items: center;
+      gap: .42rem;
+      padding: .42rem .74rem;
+      border-radius: 999px;
+      font-size: .74rem;
+      background: rgba(239,15,207,.05);
+      border: 1px solid rgba(239,15,207,.14);
+    }
+
+    .accent-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 12px rgba(239,15,207,.35);
+    }
+
+    .quick-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 0 16px 4px;
+    }
+
+    .quick-btn {
+      border: 1px solid rgba(0,0,0,.07);
+      background: #fff;
+      color: #000;
+      border-radius: 999px;
+      padding: .48rem .78rem;
+      font-size: .74rem;
+      font-weight: 600;
+      transition: .2s ease;
+      cursor: pointer;
+    }
+
+    .quick-btn:hover {
+      border-color: rgba(239,15,207,.22);
+      background: rgba(239,15,207,.04);
+    }
+
+    .chat-scroll {
+      min-height: 0;
+      overflow: auto;
+      padding: 0 16px;
+    }
+
+    .msg {
+      max-width: 88%;
+      margin-bottom: 12px;
+      border-radius: 18px;
+      padding: 12px 14px;
+      line-height: 1.5;
+      font-size: .92rem;
+    }
+
+    .msg-user {
+      margin-left: auto;
+      background: #000;
+      color: #fff;
+      box-shadow: 0 8px 20px rgba(0,0,0,.10);
+    }
+
+    .msg-ai {
+      background: #fff;
+      border: 1px solid rgba(0,0,0,.06);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .msg-meta {
+      font-size: .70rem;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: var(--text-fade);
+      margin-bottom: 7px;
+    }
+
+    .msg-ai ul {
+      margin: 8px 0 0 18px;
+      padding: 0;
+    }
+
+    .msg-ai li {
+      margin-bottom: 4px;
+    }
+
+    .composer {
+      padding: 0 16px 16px;
+    }
+
+    .composer-box {
+      border: 1px solid rgba(0,0,0,.08);
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: var(--shadow-soft);
+      padding: 12px;
+    }
+
+    .composer textarea {
+      width: 100%;
+      min-height: 88px;
+      resize: none;
+      border: 0;
+      outline: none;
+      font-family: inherit;
+      font-size: .94rem;
+      color: #000;
+      background: transparent;
+    }
+
+    .composer textarea::placeholder {
+      color: rgba(83,92,98,.56);
+    }
+
+    .composer-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .composer-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .composer-chip {
+      padding: .38rem .62rem;
+      border-radius: 999px;
+      background: var(--bg);
+      border: 1px solid rgba(0,0,0,.06);
+      color: var(--muted);
+      font-size: .72rem;
+    }
+
+    .side-stack {
+      min-height: 0;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-right: 4px;
+    }
+
+    .context-card,
+    .output-card,
+    .safety-card,
+    .actions-card {
+      padding: 14px;
+    }
+
+    .animal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .animal-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .animal-sub {
+      font-size: .80rem;
+      color: var(--text-fade);
+      margin-top: 3px;
+    }
+
+    .status-pill {
+      font-size: .72rem;
+      border-radius: 999px;
+      padding: .42rem .66rem;
+      background: rgba(239,15,207,.05);
+      border: 1px solid rgba(239,15,207,.14);
+      white-space: nowrap;
+    }
+
+    .context-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 8px;
+    }
+
+    .context-item {
+      background: #fff;
+      border: 1px solid rgba(0,0,0,.06);
+      border-radius: 14px;
+      padding: 10px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .context-item .label {
+      font-size: .68rem;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: var(--text-fade);
+      margin-bottom: 5px;
+    }
+
+    .context-item .value {
+      font-size: .84rem;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .tab-btn {
+      border: 1px solid rgba(0,0,0,.07);
+      background: #fff;
+      color: #000;
+      border-radius: 999px;
+      padding: .46rem .74rem;
+      font-size: .74rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: .2s ease;
+    }
+
+    .tab-btn.active {
+      background: rgba(239,15,207,.06);
+      border-color: rgba(239,15,207,.18);
+    }
+
+    .tab-panel {
+      display: none;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,.06);
+      border-radius: 16px;
+      padding: 12px;
+      box-shadow: var(--shadow-soft);
+      font-size: .87rem;
+      line-height: 1.55;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .action-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .action-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,.06);
+      border-radius: 14px;
+      padding: 10px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .action-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      background: rgba(239,15,207,.08);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: .82rem;
+    }
+
+    .action-title {
+      font-size: .84rem;
+      font-weight: 700;
+      margin-bottom: 3px;
+    }
+
+    .action-desc {
+      font-size: .76rem;
+      color: var(--text-fade);
+      line-height: 1.4;
+    }
+
+    .safety-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .safety-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: .80rem;
+      line-height: 1.45;
+    }
+
+    .safety-row i {
+      color: var(--accent);
+      margin-top: 2px;
+      width: 14px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .text-soft { color: var(--text-soft); }
+    .text-fade { color: var(--text-fade); }
+
+    @media (max-width: 1280px) {
+      .content {
+        grid-template-columns: 1fr;
+        overflow: auto;
+      }
+      body {
+        overflow: auto;
+      }
+    }
+
+    @media (max-width: 1080px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .sidebar {
+        display: none;
+      }
+      .main {
+        height: auto;
+      }
+      .content {
+        overflow: auto;
+      }
+      body {
+        overflow: auto;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .topbar {
+        flex-direction: column;
+        align-items: stretch;
+        height: auto;
+      }
+      .main {
+        grid-template-rows: auto 1fr;
+      }
+      .content {
+        padding: 14px;
+      }
+      .context-grid {
+        grid-template-columns: 1fr;
+      }
+      body {
+        overflow: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <div>
+          <div class="logo-title">
+            InfoVéto <span style="color:#EF0FCF;">Clinique</span>
+          </div>
+          <p class="sidebar-subtitle">
+            Une interface élégante pensée pour les petites équipes vétérinaires.
+          </p>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-group-title">Navigation</div>
+          <div class="sidebar-nav space-y-2">
+            <a href="/app/" class="nav-item">
+              <i class="fas fa-th-large"></i>
+              <span>Tableau de bord</span>
+            </a>
+            <a href="/app/planning/" class="nav-item">
+              <i class="fas fa-calendar-alt"></i>
+              <span>Planning</span>
+            </a>
+            <a href="#" class="nav-item">
+              <i class="fas fa-stethoscope"></i>
+              <span>Rendez-vous</span>
+            </a>
+            <a href="#" class="nav-item">
+              <i class="fas fa-user-friends"></i>
+              <span>Clients</span>
+            </a>
+            <a href="#" class="nav-item">
+              <i class="fas fa-paw"></i>
+              <span>Animaux</span>
+            </a>
+            <a href="#" class="nav-item">
+              <i class="fas fa-file-prescription"></i>
+              <span>Ordonnances</span>
+            </a>
+            <a href="#" class="nav-item">
+              <i class="fas fa-file-medical"></i>
+              <span>Documents</span>
+            </a>
+            <a href="/app/ia/" class="nav-item active">
+              <i class="fas fa-robot"></i>
+              <span>Assistant IA</span>
+            </a>
+            <a href="#" class="nav-item">
+              <i class="fas fa-cog"></i>
+              <span>Paramètres</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-footer-card">
+        <div class="meta">Positionnement</div>
+        <div class="title">IA utile, pas gadget</div>
+        <div class="desc">
+          Résumer, structurer, reformuler, préparer un brouillon, aider l’équipe à gagner du temps.
+        </div>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div>
+          <div class="section-title mb-1">Copilote clinique</div>
+          <div class="page-title font-display">
+            Assistant <span>IA</span>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <button class="btn-ghost"><i class="fas fa-history mr-2"></i>Historique</button>
+          <button class="btn-main"><i class="fas fa-plus mr-2"></i>Nouvelle session</button>
+        </div>
+      </header>
+
+      <main class="content">
+
+        <!-- LEFT / CHAT -->
+        <section class="card chat-shell">
+          <div class="header-strip">
+            <div>
+              <div class="section-title mb-1">Session active</div>
+              <div class="font-semibold" style="font-size:1.02rem;">Résumé et préparation de consultation</div>
+            </div>
+            <div class="badge-soft">
+              <span class="accent-dot"></span>
+              Validation vétérinaire requise
+            </div>
+          </div>
+
+          <div class="quick-actions">
+            <button class="quick-btn" onclick="setPrompt('Résume le dossier clinique de Milo pour la consultation de ce matin.')">Résumer le dossier</button>
+            <button class="quick-btn" onclick="setPrompt('Prépare un brouillon de compte-rendu clinique à partir du motif et du contexte de l’animal.')">Brouillon de compte-rendu</button>
+            <button class="quick-btn" onclick="setPrompt('Rédige une explication simple et rassurante à envoyer au propriétaire après la consultation.')">Message au propriétaire</button>
+            <button class="quick-btn" onclick="setPrompt('Prépare une structure d’ordonnance à faire valider par le vétérinaire.')">Brouillon d’ordonnance</button>
+          </div>
+
+          <div class="chat-scroll">
+            <div class="msg msg-user">
+              <div class="msg-meta" style="color:rgba(255,255,255,.55);">Vous</div>
+              Résume le dossier de Milo avant la consultation et mets en avant les points de vigilance.
+            </div>
+
+            <div class="msg msg-ai">
+              <div class="msg-meta">Assistant IA</div>
+              Voici une synthèse clinique exploitable avant la consultation.
+              <ul>
+                <li><strong>Animal :</strong> Milo, chat européen mâle castré, 7 ans.</li>
+                <li><strong>Motif actuel :</strong> vomissements depuis 24 h, baisse légère de l’appétit.</li>
+                <li><strong>Antécédents utiles :</strong> épisode digestif similaire il y a 8 mois, amélioration sous traitement symptomatique.</li>
+                <li><strong>Traitement en cours :</strong> aucun signalé aujourd’hui.</li>
+                <li><strong>Point de vigilance :</strong> vérifier fréquence des vomissements, hydratation, douleur abdominale, ingestion possible d’aliment inhabituel.</li>
+              </ul>
+            </div>
+
+            <div class="msg msg-user">
+              <div class="msg-meta">Vous</div>
+              Prépare aussi une explication simple pour le propriétaire si le vétérinaire décide un traitement symptomatique et une surveillance à domicile.
+            </div>
+
+            <div class="msg msg-ai">
+              <div class="msg-meta">Assistant IA</div>
+              Je peux proposer un texte simple pour le propriétaire, à adapter et valider avant envoi :
+              <br><br>
+              <strong>Proposition :</strong><br>
+              “Milo présente aujourd’hui un trouble digestif qui nécessite une surveillance sur les prochaines 24 à 48 heures. Un traitement a été mis en place pour l’aider à récupérer. Il faudra surveiller son appétit, ses vomissements, son comportement général et nous recontacter rapidement si son état se dégrade ou s’il ne garde ni eau ni alimentation.”
+            </div>
+          </div>
+
+          <div class="composer">
+            <div class="composer-box">
+              <textarea id="promptBox" placeholder="Décris ce que tu veux faire : résumer un dossier, préparer un brouillon d’ordonnance, reformuler pour un propriétaire, structurer une consultation…"></textarea>
+
+              <div class="composer-footer">
+                <div class="composer-left">
+                  <span class="composer-chip">Contexte animal actif</span>
+                  <span class="composer-chip">Sortie relue par humain</span>
+                  <span class="composer-chip">Mode clinique</span>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <button class="btn-ghost"><i class="fas fa-paperclip mr-2"></i>Joindre</button>
+                  <button class="btn-main"><i class="fas fa-arrow-up mr-2"></i>Envoyer</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- RIGHT / CONTEXT -->
+        <aside class="side-stack panel-scroll">
+
+          <section class="card context-card">
+            <div class="section-title mb-3">Contexte actif</div>
+
+            <div class="animal-header">
+              <div>
+                <div class="animal-name">Milo</div>
+                <div class="animal-sub">Chat européen • 7 ans • Mâle castré</div>
+              </div>
+              <div class="status-pill">Consultation 09:40</div>
+            </div>
+
+            <div class="context-grid">
+              <div class="context-item">
+                <div class="label">Motif</div>
+                <div class="value">Vomissements depuis 24 h</div>
+              </div>
+              <div class="context-item">
+                <div class="label">Client</div>
+                <div class="value">Mme Dubois</div>
+              </div>
+              <div class="context-item">
+                <div class="label">Dernier passage</div>
+                <div class="value">Il y a 8 mois</div>
+              </div>
+              <div class="context-item">
+                <div class="label">Poids</div>
+                <div class="value">4,6 kg</div>
+              </div>
+              <div class="context-item">
+                <div class="label">Antécédent utile</div>
+                <div class="value">Épisode digestif similaire</div>
+              </div>
+              <div class="context-item">
+                <div class="label">Traitement actuel</div>
+                <div class="value">Aucun signalé</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card output-card">
+            <div class="section-title mb-3">Sorties utiles</div>
+
+            <div class="tabs">
+              <button class="tab-btn active" onclick="showTab('tab1', this)">Résumé</button>
+              <button class="tab-btn" onclick="showTab('tab2', this)">Ordonnance</button>
+              <button class="tab-btn" onclick="showTab('tab3', this)">Propriétaire</button>
+            </div>
+
+            <div id="tab1" class="tab-panel active">
+              <strong>Synthèse rapide :</strong><br>
+              Chat adulte présenté pour vomissements depuis 24 h, avec appétit diminué mais sans autre traitement en cours signalé. Point à clarifier : fréquence, douleur, hydratation, ingestion inhabituelle.
+            </div>
+
+            <div id="tab2" class="tab-panel">
+              <strong>Brouillon d’ordonnance :</strong><br>
+              Structure à compléter selon examen clinique, diagnostic et prescription effective. Vérification et validation vétérinaire indispensables avant édition.
+            </div>
+
+            <div id="tab3" class="tab-panel">
+              <strong>Texte simplifié pour le propriétaire :</strong><br>
+              Proposition claire, rassurante et reformulée sans jargon pour transmission après validation clinique.
+            </div>
+          </section>
+
+          <section class="card actions-card">
+            <div class="section-title mb-3">Actions pratiques</div>
+
+            <div class="action-list">
+              <div class="action-item">
+                <div class="action-icon"><i class="fas fa-file-alt"></i></div>
+                <div>
+                  <div class="action-title">Structurer une note de consultation</div>
+                  <div class="action-desc">Créer un squelette rapide : motif, anamnèse, examen, plan.</div>
+                </div>
+              </div>
+
+              <div class="action-item">
+                <div class="action-icon"><i class="fas fa-comment-medical"></i></div>
+                <div>
+                  <div class="action-title">Reformuler pour le propriétaire</div>
+                  <div class="action-desc">Transformer une explication clinique en message simple et compréhensible.</div>
+                </div>
+              </div>
+
+              <div class="action-item">
+                <div class="action-icon"><i class="fas fa-prescription-bottle-alt"></i></div>
+                <div>
+                  <div class="action-title">Préparer un brouillon d’ordonnance</div>
+                  <div class="action-desc">Sortie toujours destinée à être relue et validée par le vétérinaire.</div>
+                </div>
+              </div>
+
+              <div class="action-item">
+                <div class="action-icon"><i class="fas fa-history"></i></div>
+                <div>
+                  <div class="action-title">Résumer un historique long</div>
+                  <div class="action-desc">Faire ressortir les éléments utiles avant un rendez-vous.</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="dark-premium safety-card">
+            <div class="section-title mb-3">Cadre d’usage</div>
+
+            <div class="safety-list">
+              <div class="safety-row">
+                <i class="fas fa-check-circle"></i>
+                <div>Les réponses servent d’aide à la préparation, à la rédaction et à l’organisation clinique.</div>
+              </div>
+              <div class="safety-row">
+                <i class="fas fa-check-circle"></i>
+                <div>Les brouillons d’ordonnance et messages externes doivent être validés avant envoi.</div>
+              </div>
+              <div class="safety-row">
+                <i class="fas fa-check-circle"></i>
+                <div>Le contexte affiché rappelle toujours l’animal, le motif et les points de vigilance.</div>
+              </div>
+            </div>
+          </section>
+
+        </aside>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    function setPrompt(text) {
+      const box = document.getElementById('promptBox');
+      box.value = text;
+      box.focus();
+    }
+
+    function showTab(id, btn) {
+      document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(button => button.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      btn.classList.add('active');
+    }
+  </script>
+</body>
+</html>
