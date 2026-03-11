@@ -382,6 +382,10 @@
       box-shadow: var(--shadow-soft);
     }
 
+    .msg-content {
+      white-space: normal;
+    }
+
     .msg-meta {
       font-size: .70rem;
       text-transform: uppercase;
@@ -397,6 +401,51 @@
 
     .msg-ai li {
       margin-bottom: 4px;
+    }
+
+    .msg-sources {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(0,0,0,.06);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .source-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: .34rem .56rem;
+      border-radius: 999px;
+      background: rgba(239,15,207,.05);
+      border: 1px solid rgba(239,15,207,.12);
+      color: var(--muted);
+      font-size: .70rem;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .source-chip i {
+      color: var(--accent);
+      font-size: .68rem;
+    }
+
+    .empty-chat {
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 30px 16px;
+      color: var(--text-fade);
+    }
+
+    .empty-chat strong {
+      display: block;
+      color: var(--black);
+      font-size: 1.02rem;
+      margin-bottom: 8px;
     }
 
     .composer {
@@ -754,8 +803,8 @@
         </div>
 
         <div class="topbar-right">
-          <button class="btn-ghost"><i class="fas fa-history mr-2"></i>Historique</button>
-          <button class="btn-main"><i class="fas fa-plus mr-2"></i>Nouvelle session</button>
+          <button class="btn-ghost" id="historyBtn"><i class="fas fa-history mr-2"></i>Session locale</button>
+          <button class="btn-main" id="newSessionBtn"><i class="fas fa-plus mr-2"></i>Nouvelle session</button>
         </div>
       </header>
 
@@ -781,37 +830,7 @@
             <button class="quick-btn" onclick="setPrompt('Prépare une structure d’ordonnance à faire valider par le vétérinaire.')">Brouillon d’ordonnance</button>
           </div>
 
-          <div class="chat-scroll">
-            <div class="msg msg-user">
-              <div class="msg-meta" style="color:rgba(255,255,255,.55);">Vous</div>
-              Résume le dossier de Milo avant la consultation et mets en avant les points de vigilance.
-            </div>
-
-            <div class="msg msg-ai">
-              <div class="msg-meta">Assistant IA</div>
-              Voici une synthèse clinique exploitable avant la consultation.
-              <ul>
-                <li><strong>Animal :</strong> Milo, chat européen mâle castré, 7 ans.</li>
-                <li><strong>Motif actuel :</strong> vomissements depuis 24 h, baisse légère de l’appétit.</li>
-                <li><strong>Antécédents utiles :</strong> épisode digestif similaire il y a 8 mois, amélioration sous traitement symptomatique.</li>
-                <li><strong>Traitement en cours :</strong> aucun signalé aujourd’hui.</li>
-                <li><strong>Point de vigilance :</strong> vérifier fréquence des vomissements, hydratation, douleur abdominale, ingestion possible d’aliment inhabituel.</li>
-              </ul>
-            </div>
-
-            <div class="msg msg-user">
-              <div class="msg-meta">Vous</div>
-              Prépare aussi une explication simple pour le propriétaire si le vétérinaire décide un traitement symptomatique et une surveillance à domicile.
-            </div>
-
-            <div class="msg msg-ai">
-              <div class="msg-meta">Assistant IA</div>
-              Je peux proposer un texte simple pour le propriétaire, à adapter et valider avant envoi :
-              <br><br>
-              <strong>Proposition :</strong><br>
-              “Milo présente aujourd’hui un trouble digestif qui nécessite une surveillance sur les prochaines 24 à 48 heures. Un traitement a été mis en place pour l’aider à récupérer. Il faudra surveiller son appétit, ses vomissements, son comportement général et nous recontacter rapidement si son état se dégrade ou s’il ne garde ni eau ni alimentation.”
-            </div>
-          </div>
+          <div class="chat-scroll" id="chatMessages"></div>
 
           <div class="composer">
             <div class="composer-box">
@@ -826,7 +845,7 @@
 
                 <div class="flex items-center gap-2">
                   <button class="btn-ghost"><i class="fas fa-paperclip mr-2"></i>Joindre</button>
-                  <button class="btn-main"><i class="fas fa-arrow-up mr-2"></i>Envoyer</button>
+                  <button class="btn-main" id="sendBtn"><i class="fas fa-arrow-up mr-2"></i>Envoyer</button>
                 </div>
               </div>
             </div>
@@ -963,10 +982,297 @@
   </div>
 
   <script>
+    const chatMessages = document.getElementById('chatMessages');
+    const promptBox = document.getElementById('promptBox');
+    const sendBtn = document.getElementById('sendBtn');
+    const historyBtn = document.getElementById('historyBtn');
+    const newSessionBtn = document.getElementById('newSessionBtn');
+    const API_CHAT_URL = '/api/chat/stream';
+    const STORAGE_KEY = 'vetia-chat-history-v1';
+    const uiMessages = [];
+
+    function scrollToBottom() {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function basename(path) {
+      const parts = String(path || '').split(/[/\\]/);
+      return parts[parts.length - 1] || path;
+    }
+
+    function sanitizeDisplayText(text) {
+      return text
+        .replace(/\*\*/g, '')
+        .replace(/(?:\[(?:\d+)\])+/g, '')
+        .replace(/\[(?:\d+(?:\s*,\s*\d+)*)\]/g, '');
+    }
+
+    function renderMultilineText(text) {
+      return escapeHtml(sanitizeDisplayText(text)).replace(/\n/g, '<br>');
+    }
+
+    function getApiHistory() {
+      return uiMessages.map(({ role, content }) => ({ role, content }));
+    }
+
+    function saveSession() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(uiMessages));
+      historyBtn.innerHTML = `<i class="fas fa-history mr-2"></i>${uiMessages.length ? 'Session sauvegardee' : 'Session locale'}`;
+    }
+
+    function renderEmptyState() {
+      chatMessages.innerHTML = `
+        <div class="empty-chat">
+          <div>
+            <strong>Commencez une conversation</strong>
+            Decrivez simplement la situation de l'animal, et l'assistant vous aidera a clarifier les points utiles.
+          </div>
+        </div>
+      `;
+    }
+
+    function clearEmptyState() {
+      const emptyState = chatMessages.querySelector('.empty-chat');
+      if (emptyState) {
+        emptyState.remove();
+      }
+    }
+
+    function appendMessage(role, content, options = {}) {
+      clearEmptyState();
+
+      const wrapper = document.createElement('div');
+      wrapper.className = role === 'user' ? 'msg msg-user' : 'msg msg-ai';
+
+      if (options.id) {
+        wrapper.id = options.id;
+      }
+
+      const meta = document.createElement('div');
+      meta.className = 'msg-meta';
+      meta.textContent = role === 'user' ? 'Vous' : 'Assistant IA';
+      if (role === 'user') {
+        meta.style.color = 'rgba(255,255,255,.55)';
+      }
+
+      const contentNode = document.createElement('div');
+      contentNode.className = 'msg-content';
+      contentNode.innerHTML = renderMultilineText(content);
+
+      wrapper.appendChild(meta);
+      wrapper.appendChild(contentNode);
+
+      if (role === 'assistant') {
+        const sourcesNode = document.createElement('div');
+        sourcesNode.className = 'msg-sources';
+        sourcesNode.hidden = true;
+        wrapper.appendChild(sourcesNode);
+      }
+
+      chatMessages.appendChild(wrapper);
+      scrollToBottom();
+      return wrapper;
+    }
+
+    function renderSources(messageNode, sources = []) {
+      const sourcesNode = messageNode.querySelector('.msg-sources');
+      if (!sourcesNode) {
+        return;
+      }
+
+      sourcesNode.innerHTML = '';
+      if (!sources.length) {
+        sourcesNode.hidden = true;
+        return;
+      }
+
+      const seen = new Set();
+      sources.forEach((source) => {
+        const key = `${source.path}|${source.rag}`;
+        if (seen.has(key)) {
+          return;
+        }
+        seen.add(key);
+
+        const chip = document.createElement('span');
+        chip.className = 'source-chip';
+        chip.title = `${source.path} (${source.rag})`;
+        chip.innerHTML = `<i class="fas fa-book-medical"></i><span>${escapeHtml(basename(source.path))}</span>`;
+        sourcesNode.appendChild(chip);
+      });
+
+      sourcesNode.hidden = !sourcesNode.childElementCount;
+    }
+
+    function updateMessageContent(messageNode, content, sources = null) {
+      const contentNode = messageNode.querySelector('.msg-content');
+      contentNode.innerHTML = renderMultilineText(content);
+      if (sources) {
+        renderSources(messageNode, sources);
+      }
+      scrollToBottom();
+    }
+
+    function pushUiMessage(role, content, sources = []) {
+      uiMessages.push({ role, content, sources });
+      saveSession();
+    }
+
+    function loadSavedSession() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        renderEmptyState();
+        saveSession();
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed) || !parsed.length) {
+          renderEmptyState();
+          saveSession();
+          return;
+        }
+
+        parsed.forEach((item) => {
+          if (!item || !item.role || !item.content) {
+            return;
+          }
+
+          uiMessages.push({
+            role: item.role,
+            content: item.content,
+            sources: Array.isArray(item.sources) ? item.sources : []
+          });
+
+          const messageNode = appendMessage(item.role, item.content);
+          if (item.role === 'assistant') {
+            renderSources(messageNode, item.sources || []);
+          }
+        });
+
+        saveSession();
+      } catch (error) {
+        localStorage.removeItem(STORAGE_KEY);
+        renderEmptyState();
+        saveSession();
+      }
+    }
+
+    function resetSession() {
+      uiMessages.length = 0;
+      chatMessages.innerHTML = '';
+      renderEmptyState();
+      saveSession();
+      promptBox.focus();
+    }
+
+    function appendTransientError() {
+      appendMessage('assistant', 'Impossible de joindre l\'API. Lancez simplement: .\\start_chatbot.bat');
+    }
+
+    async function sendPrompt() {
+      const message = promptBox.value.trim();
+      if (!message) {
+        return;
+      }
+
+      appendMessage('user', message);
+      pushUiMessage('user', message);
+      promptBox.value = '';
+      setSendingState(true);
+
+      const streamingMsg = appendMessage('assistant', '');
+      let assistantText = '';
+      let assistantSources = [];
+
+      try {
+        const response = await fetch(API_CHAT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message,
+            history: getApiHistory(),
+            rag: 'default',
+            k: 4
+          })
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          const errorMsg = data.error || 'Erreur inconnue du backend.';
+          streamingMsg.remove();
+          appendMessage('assistant', 'Erreur: ' + errorMsg);
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) {
+            break;
+          }
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (!line.trim()) {
+              continue;
+            }
+
+            const data = JSON.parse(line);
+            if (data.type === 'chunk') {
+              assistantText += data.content || '';
+              updateMessageContent(streamingMsg, assistantText);
+            } else if (data.type === 'done') {
+              assistantSources = Array.isArray(data.sources) ? data.sources : [];
+            }
+          }
+        }
+
+        assistantText = sanitizeDisplayText(assistantText).trim();
+        if (!assistantText) {
+          assistantText = 'Je n\'ai pas recu de reponse exploitable.';
+        }
+
+        updateMessageContent(streamingMsg, assistantText, assistantSources);
+        pushUiMessage('assistant', assistantText, assistantSources);
+      } catch (error) {
+        streamingMsg.remove();
+        appendTransientError();
+      } finally {
+        setSendingState(false);
+        promptBox.focus();
+      }
+    }
+
+    function setSendingState(isSending) {
+      sendBtn.disabled = isSending;
+      promptBox.disabled = isSending;
+      sendBtn.style.opacity = isSending ? '0.7' : '1';
+      sendBtn.style.cursor = isSending ? 'not-allowed' : 'pointer';
+      sendBtn.innerHTML = isSending
+        ? '<i class="fas fa-spinner fa-spin mr-2"></i>Envoi...'
+        : '<i class="fas fa-arrow-up mr-2"></i>Envoyer';
+    }
+
     function setPrompt(text) {
-      const box = document.getElementById('promptBox');
-      box.value = text;
-      box.focus();
+      promptBox.value = text;
+      promptBox.focus();
     }
 
     function showTab(id, btn) {
@@ -975,6 +1281,22 @@
       document.getElementById(id).classList.add('active');
       btn.classList.add('active');
     }
+
+    sendBtn.addEventListener('click', sendPrompt);
+    historyBtn.addEventListener('click', () => {
+      scrollToBottom();
+      promptBox.focus();
+    });
+    newSessionBtn.addEventListener('click', resetSession);
+    promptBox.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendPrompt();
+      }
+    });
+
+    loadSavedSession();
+    scrollToBottom();
   </script>
 </body>
 </html>
